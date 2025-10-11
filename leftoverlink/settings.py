@@ -221,3 +221,11 @@ LOGGING = {
 
 # FCM Settings
 FCM_SERVER_KEY = "BEe-4a-bg2Bi6NNf0mORUvF1YZuDZ81zpYf1scZKFi7CFxuM5NUFKIX4TD2b4_A9XbwGBin8mvHZHlLdIyF2jKo"
+
+
+# ...existing code...
+import os
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# ...existing code...
