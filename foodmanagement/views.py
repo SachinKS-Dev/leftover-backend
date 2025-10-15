@@ -14,7 +14,7 @@ from core.helpers import (
     get_cod_submissions, get_pending_cod_submissions,
     verify_cod_submission, get_financial_reports
 )
-from core.fcm_service import fcm_service
+from core.fcm_service_v1 import fcm_service_v1
 from foodmanagement.models import Food, Cart, OrderDetails, Wallet, WalletTransaction, DeliveryEarnings, DeliveryBoyProfile, CODSubmission
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -991,22 +991,21 @@ def register_expo_push_token_api(request):
         return Response({"detail": "Expo push token is required"}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        # Store the token in FCMDevice model (we'll use it for both FCM and Expo)
-        from foodmanagement.fcm_models import FCMDevice
-        device, created = FCMDevice.objects.update_or_create(
-            fcm_token=expo_push_token,  # Using fcm_token field to store expo token
-            defaults={
-                'user_id': request.user.id,
-                'device_type': device_type,
-                'is_active': True
-            }
+        device = fcm_service_v1.register_device(
+            user_id=request.user.id,
+            fcm_token=expo_push_token,
+            device_type=device_type
         )
         
-        action = "created" if created else "updated"
-        return Response({
-            "detail": f"Expo push token {action} successfully",
-            "device_id": device.id
-        }, status=status.HTTP_201_CREATED)
+        if device:
+            return Response({
+                "detail": "Expo push token registered successfully",
+                "device_id": device.id
+            }, status=status.HTTP_201_CREATED)
+        else:
+            return Response({
+                "detail": "Failed to register token"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
     except Exception as e:
         return Response({
@@ -1025,10 +1024,7 @@ def unregister_expo_push_token_api(request):
         return Response({"detail": "Expo push token is required"}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        from foodmanagement.fcm_models import FCMDevice
-        device = FCMDevice.objects.get(fcm_token=expo_push_token)
-        device.is_active = False
-        device.save()
+        device = fcm_service_v1.deactivate_device(expo_push_token)
         
         return Response({
             "detail": "Expo push token unregistered successfully"
@@ -1058,7 +1054,7 @@ def register_fcm_token_api(request):
         return Response({"detail": "FCM token is required"}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        device = fcm_service.register_device(
+        device = fcm_service_v1.register_device(
             user_id=request.user.id,
             fcm_token=fcm_token,
             device_type=device_type
@@ -1091,7 +1087,7 @@ def unregister_fcm_token_api(request):
         return Response({"detail": "FCM token is required"}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        device = fcm_service.deactivate_device(fcm_token)
+        device = fcm_service_v1.deactivate_device(fcm_token)
         
         if device:
             return Response({
@@ -1148,7 +1144,7 @@ def send_test_notification_api(request):
     body = request.data.get('body', 'This is a test notification from LeftoverLink')
     
     try:
-        result = fcm_service.send_to_user(
+        result = fcm_service_v1.send_to_user(
             user_id=request.user.id,
             title=title,
             body=body,

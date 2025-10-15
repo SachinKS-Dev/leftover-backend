@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
 from pathlib import Path
 from datetime import timedelta
 
@@ -219,8 +219,13 @@ LOGGING = {
     },
 }
 
-# FCM Settings
-FCM_SERVER_KEY = "BFLHFDeTMmk8f30oADjfP4VcgeiUEpFWG9eoSqLCCUr4fZ_Kw4RlFXAGi9Vbbia8Y4hwYQDp83cr1wrk5AGv0Yw"
+# FCM Settings (Legacy - Deprecated)
+# FCM_SERVER_KEY = "BFLHFDeTMmk8f30oADjfP4VcgeiUEpFWG9eoSqLCCUr4fZ_Kw4RlFXAGi9Vbbia8Y4hwYQDp83cr1wrk5AGv0Yw"
+
+# Firebase Admin SDK (FCM v1 API) - Modern approach
+# Download service account key from Firebase Console:
+# Project Settings → Service Accounts → Generate New Private Key
+FIREBASE_SERVICE_ACCOUNT_KEY = os.path.join(BASE_DIR, 'serviceAccountKey.json')
 
 
 # ...existing code...

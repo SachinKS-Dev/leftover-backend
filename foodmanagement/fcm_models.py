@@ -16,3 +16,4 @@ class FCMDevice(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.device_type} ({'Active' if self.is_active else 'Inactive'})"
+

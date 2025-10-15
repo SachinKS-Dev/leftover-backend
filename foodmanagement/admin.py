@@ -8,10 +8,10 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 import calendar
 from .models import Food, Cart, OrderDetails, OrderItem, Wallet, WalletTransaction, DeliveryEarnings, DeliveryBoyProfile, CODSubmission
+from .fcm_models import FCMDevice
 from core.helpers import get_financial_reports
 from core.pdf_generator import generate_financial_report_pdf
-from core.fcm_service import fcm_service
-from core.expo_push_service import expo_push_service
+from core.fcm_service_v1 import fcm_service_v1
 
 @admin.register(Food)
 class FoodAdmin(admin.ModelAdmin):
@@ -29,11 +29,21 @@ class FoodAdmin(admin.ModelAdmin):
         
         # Send push notification to all customers when new food is added
         if not change:  # Only for new food items
+            print("\n" + "=" * 80)
+            print("🍕 NEW FOOD ADDED - Triggering push notification")
+            print(f"   Food: {obj.name}")
+            print(f"   Price: ${obj.price}")
+            print(f"   Quantity: {obj.quantity}")
+            print(f"   ID: {obj.id}")
+            print("=" * 80)
+            
             try:
-                # Try Expo push notifications first (for Expo apps)
-                expo_result = expo_push_service.send_to_all_customers(
+                # Send notification via FCM v1 API (Firebase Admin SDK)
+                print("📤 Calling fcm_service_v1.send_to_all_customers()...")
+                
+                fcm_result = fcm_service_v1.send_to_all_customers(
                     title="🍕 New Food Available!",
-                    body=f"{obj.name} is now available for just {obj.price}",
+                    body=f"{obj.name} is now available for just ${obj.price}",
                     data={
                         "type": "new_food",
                         "food_id": str(obj.id),
@@ -43,25 +53,27 @@ class FoodAdmin(admin.ModelAdmin):
                     }
                 )
                 
-                # Also try FCM (for native apps)
-                fcm_result = fcm_service.send_to_all_customers(
-                    title="🍕 New Food Available!",
-                    body=f"{obj.name} is now available for just {obj.price}",
-                    data={
-                        "type": "new_food",
-                        "food_id": str(obj.id),
-                        "food_name": obj.name,
-                        "price": str(obj.price),
-                        "quantity": str(obj.quantity)
-                    }
-                )
+                print("\n" + "=" * 80)
+                print("📊 NOTIFICATION RESULT:")
+                print(f"   FCM v1 result: {fcm_result}")
                 
-                print(f"✅ Push notifications sent for new food: {obj.name}")
-                print(f"   Expo result: {expo_result}")
-                print(f"   FCM result: {fcm_result}")
+                if fcm_result:
+                    print(f"   ✅ Success: {fcm_result.get('success_count', 0)} devices")
+                    print(f"   ❌ Failure: {fcm_result.get('failure_count', 0)} devices")
+                    print(f"   📱 Total: {fcm_result.get('total', 0)} devices")
+                else:
+                    print("   ⚠️ No result returned (check logs above for errors)")
+                print("=" * 80 + "\n")
                 
             except Exception as e:
-                print(f"❌ Error sending push notification: {str(e)}")
+                print("\n" + "=" * 80)
+                print("❌ EXCEPTION in FoodAdmin.save_model()!")
+                print(f"   Error: {str(e)}")
+                print(f"   Type: {type(e).__name__}")
+                import traceback
+                print("   Traceback:")
+                traceback.print_exc()
+                print("=" * 80 + "\n")
 
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
@@ -586,6 +598,107 @@ class DeliveryBoyProfileAdmin(admin.ModelAdmin):
     list_display = ['user', 'is_available', 'total_earnings', 'total_deliveries', 'rating', 'phone_number', 'vehicle_type']
     list_filter = ['is_available', 'vehicle_type', 'created_at']
     search_fields = ['user__username', 'phone_number', 'license_number']
+
+
+@admin.register(FCMDevice)
+class FCMDeviceAdmin(admin.ModelAdmin):
+    list_display = ['user', 'device_type', 'is_active', 'token_preview', 'created_at', 'updated_at']
+    list_filter = ['is_active', 'device_type', 'created_at']
+    search_fields = ['user__username', 'fcm_token']
+    readonly_fields = ['fcm_token', 'created_at', 'updated_at', 'full_token_display']
+    list_per_page = 20
+    
+    fieldsets = (
+        ('Device Information', {
+            'fields': ('user', 'device_type', 'is_active')
+        }),
+        ('FCM Token', {
+            'fields': ('full_token_display',),
+            'description': 'Copy this token for testing notifications'
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def token_preview(self, obj):
+        """Show first 20 characters of token"""
+        if obj.fcm_token:
+            token_start = obj.fcm_token[:20]
+            token_end = obj.fcm_token[-10:]
+            return f"{token_start}...{token_end}"
+        return "No token"
+    token_preview.short_description = 'Token Preview'
+    
+    def full_token_display(self, obj):
+        """Display full token for copying"""
+        if obj.fcm_token:
+            return f"{obj.fcm_token}"
+        return "No token"
+    full_token_display.short_description = 'Full FCM Token (Copy This)'
+    
+    def get_queryset(self, request):
+        """Order by most recently updated"""
+        qs = super().get_queryset(request)
+        return qs.select_related('user').order_by('-updated_at')
+    
+    actions = ['activate_devices', 'deactivate_devices', 'test_send_notification']
+    
+    def activate_devices(self, request, queryset):
+        """Activate selected devices"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f'{updated} devices activated successfully.')
+    activate_devices.short_description = '✅ Activate selected devices'
+    
+    def deactivate_devices(self, request, queryset):
+        """Deactivate selected devices"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f'{updated} devices deactivated successfully.')
+    deactivate_devices.short_description = '❌ Deactivate selected devices'
+    
+    def test_send_notification(self, request, queryset):
+        """Send test notification to selected devices"""
+        from core.fcm_service_v1 import fcm_service_v1
+        
+        active_devices = queryset.filter(is_active=True)
+        if not active_devices.exists():
+            self.message_user(request, 'No active devices selected!', level='warning')
+            return
+        
+        tokens = [device.fcm_token for device in active_devices]
+        
+        try:
+            from firebase_admin import messaging
+            
+            success_count = 0
+            failure_count = 0
+            
+            # Send to each device individually
+            for token in tokens:
+                try:
+                    message = messaging.Message(
+                        notification=messaging.Notification(
+                            title="🔔 Test Notification",
+                            body="This is a test notification from LeftoverLink Admin",
+                        ),
+                        data={'type': 'test', 'source': 'admin'},
+                        token=token,
+                    )
+                    
+                    messaging.send(message)
+                    success_count += 1
+                except Exception as e:
+                    failure_count += 1
+                    print(f"Failed to send to token: {str(e)}")
+            
+            self.message_user(
+                request, 
+                f'Test notification sent! Success: {success_count}, Failed: {failure_count}'
+            )
+        except Exception as e:
+            self.message_user(request, f'Error sending notification: {str(e)}', level='error')
+    test_send_notification.short_description = '📤 Send test notification to selected devices'
 
 
 @admin.register(CODSubmission)
