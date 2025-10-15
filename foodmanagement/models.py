@@ -152,7 +152,7 @@ class Wallet(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"Wallet for {self.user.username} - ${self.balance}"
+        return f"Wallet for {self.user.username} - ₹{self.balance}"
     
     def add_money(self, amount):
         """Add money to wallet"""
@@ -187,7 +187,7 @@ class WalletTransaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return f"{self.transaction_type.title()} of ${self.amount} for {self.wallet.user.username}"
+        return f"{self.transaction_type.title()} of ₹{self.amount} for {self.wallet.user.username}"
 
 
 class DeliveryEarnings(models.Model):
@@ -207,7 +207,7 @@ class DeliveryEarnings(models.Model):
     paid_at = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
-        return f"{self.delivery_boy.username} - {self.earning_type} - ${self.amount}"
+        return f"{self.delivery_boy.username} - {self.earning_type} - ₹{self.amount}"
 
 
 class CODSubmission(models.Model):
@@ -237,7 +237,7 @@ class CODSubmission(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return f"COD Submission - {self.delivery_boy.username} - Order {self.order.order_id} - ${self.amount_submitted}"
+        return f"COD Submission - {self.delivery_boy.username} - Order {self.order.order_id} - ₹{self.amount_submitted}"
 
 
 class DeliveryBoyProfile(models.Model):

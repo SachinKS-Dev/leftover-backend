@@ -32,7 +32,7 @@ class FoodAdmin(admin.ModelAdmin):
             print("\n" + "=" * 80)
             print("🍕 NEW FOOD ADDED - Triggering push notification")
             print(f"   Food: {obj.name}")
-            print(f"   Price: ${obj.price}")
+            print(f"   Price: ₹{obj.price}")
             print(f"   Quantity: {obj.quantity}")
             print(f"   ID: {obj.id}")
             print("=" * 80)
@@ -43,7 +43,7 @@ class FoodAdmin(admin.ModelAdmin):
                 
                 fcm_result = fcm_service_v1.send_to_all_customers(
                     title="🍕 New Food Available!",
-                    body=f"{obj.name} is now available for just ${obj.price}",
+                    body=f"{obj.name} is now available for just ₹{obj.price}",
                     data={
                         "type": "new_food",
                         "food_id": str(obj.id),
@@ -168,7 +168,7 @@ class OrderDetailsAdmin(admin.ModelAdmin):
         if obj.payment_method != 'cod':
             return '-'
         if obj.cod_amount_collected > 0:
-            return f'✅ Collected (${obj.cod_amount_collected})'
+            return f'✅ Collected (₹{obj.cod_amount_collected})'
         else:
             return '⏳ Not Collected'
     cod_collection_status.short_description = 'COD Collection'

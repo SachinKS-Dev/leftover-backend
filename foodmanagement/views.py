@@ -270,7 +270,7 @@ def add_money_to_wallet_api(request):
         )
         
         return Response({
-            "detail": f"${amount} added to wallet successfully!",
+            "detail": f"₹{amount} added to wallet successfully!",
             "new_balance": float(wallet.balance)
         }, status=status.HTTP_200_OK)
         
@@ -495,7 +495,7 @@ def collect_cod_payment_api(request):
         order = collect_cod_payment(request.user, order_id, amount_collected)
         
         return Response({
-            "detail": f"COD payment of ${amount_collected} collected successfully!",
+            "detail": f"COD payment of ₹{amount_collected} collected successfully!",
             "order": {
                 'id': order.id,
                 'order_id': order.order_id,
@@ -690,7 +690,7 @@ def submit_cod_payment_api(request):
         )
         
         return Response({
-            "detail": f"COD payment of ${amount_submitted} submitted successfully!",
+            "detail": f"COD payment of ₹{amount_submitted} submitted successfully!",
             "submission": {
                 'id': submission.id,
                 'order_id': submission.order.order_id,
